@@ -20,7 +20,6 @@ from bs4 import BeautifulSoup
 from string import punctuation
 import time
 from warnings import warn
-import pandas as pd
 
 from lyricsgenius.song import Song
 
@@ -428,11 +427,10 @@ class Genius(_API):
         return artist
 
     def search_album(self, artist_name, album_title):
-        """Get all lyrics from an album"""
-        # authentify
-        api = Genius(client_access_token)
-        # genius find the artist
-        artist = api.search_artist(artist_name, max_songs=0)
+        """Get all lyrics from an album and save them in a json file"""
+
+        # genius finds the artist
+        artist = self.search_artist(artist_name, max_songs=0)
         # modify artist_name and album_title so that they will lead us to the album page on Genius.com
         artist_name = artist._body['name']
         for ch in [',', "/", " ", '$', ';', ':', '(', ')', '[', ']', '----', '---', '--']:
@@ -484,8 +482,8 @@ class Genius(_API):
                 nb = mindiv.text.replace("\n", "")
                 if nb != "":
                     index.append(nb)
-            # create the pandas dataframe holding the tracks' titles
-            df = pd.DataFrame(index=index, columns=['track_title'])
+            # create a list holding the tracks' titles
+            df = []
             ndiv = div.find_all('h3', attrs={'class': 'chart_row-content-title'})
             for mindiv in ndiv:
                 tt = mindiv.text.replace("\n", "").strip()
@@ -495,24 +493,24 @@ class Genius(_API):
                 else:
                     # getting ride of "lyrics" at the end of the title
                     tt = tt.rsplit(" ", 1)[0].strip()
-                df['track_title'][var] = tt
+                df.append(tt)
                 var += 1
-                if var == len(df.index):
+                if var == len(index):
                     break
-        # loop to add song with title from the dataframe
-        for track in df['track_title']:
+        # loop to add song with title from the list
+        for track in df:
             # search the song
-            song = api.search_song(track, artist.name)
+            song = self.search_song(track, artist.name)
             # if the song was found, it's added to artist
             if song != None:
                 artist.add_song(song)
             # if the song wasn't found, it might be because it's formatted in this way : "title by other artist"
             elif track.find("by") >= 0:
                 s_artist_name = track.replace("\xa0", " ").rsplit(" by ", 1)[1]
-                s_artist = api.search_artist(s_artist_name, max_songs=0)
+                s_artist = self.search_artist(s_artist_name, max_songs=0)
                 track = track.replace("\xa0", " ").rsplit(" by ", 1)[0].strip()
                 # look for song with other artist
-                song = api.search_song(track, s_artist.name)
+                song = self.search_song(track, s_artist.name)
                 if song != None:
                     # add song to the album's main artist
                     artist.add_song(song)
@@ -575,4 +573,4 @@ class Genius(_API):
 client_access_token = 'YOUR_TOKEN_HERE'
 api = Genius(client_access_token)
 
-Genius.search_album(api, "Ace Hood", "Trials & Tribulations")
+Genius.search_album(api, "DJ Khaled", "Grateful")
